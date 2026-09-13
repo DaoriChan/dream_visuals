@@ -1,0 +1,2525 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Dream Visuals — живой рабочий стол</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #05070c;
+        --panel: rgba(12, 16, 24, 0.6);
+        --panel-solid: #0b0f17;
+        --line: rgba(255, 255, 255, 0.1);
+        --text: #eaf6f6;
+        --muted: #93a6ad;
+        --accent: #28f0ff;
+        --accent-2: #00b3c9;
+        --vh: 1vh;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Inter", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overscroll-behavior: none;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: "Space Grotesk", sans-serif;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      ::selection {
+        background: var(--accent);
+        color: #041014;
+      }
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      button {
+        font-family: inherit;
+      }
+      img {
+        max-width: 100%;
+        display: block;
+      }
+
+      /* ============ STAGE ============ */
+      #stage {
+        position: fixed;
+        inset: 0;
+        height: calc(var(--vh) * 100);
+        overflow: hidden;
+      }
+
+      /* layered SVG theme backgrounds — each theme owns distinct shapes, not just a recolor */
+      #bgThemes {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+      }
+      .theme-bg {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+      }
+      .theme-bg.active {
+        opacity: 1;
+      }
+      .theme-bg svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: radial-gradient(
+          120% 100% at 50% 100%,
+          rgba(3, 4, 8, 0.35),
+          rgba(3, 4, 8, 0.72) 75%
+        );
+        pointer-events: none;
+      }
+      .grain {
+        position: fixed;
+        inset: 0;
+        z-index: 6;
+        pointer-events: none;
+        opacity: 0.035;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+
+      /* subtle diagonal flourish line on transition — decorative only, never blocks content */
+      #sweep {
+        position: fixed;
+        top: -30%;
+        left: -10%;
+        width: 220%;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent),
+          transparent
+        );
+        transform: rotate(-18deg) translateX(-140%);
+        opacity: 0;
+        z-index: 40;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        filter: blur(0.5px);
+      }
+      #sweep.run {
+        animation: sweepMove 0.7s ease-out;
+      }
+      @keyframes sweepMove {
+        0% {
+          opacity: 0;
+          transform: rotate(-18deg) translateX(-140%);
+        }
+        12% {
+          opacity: 0.8;
+        }
+        88% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 0;
+          transform: rotate(-18deg) translateX(60%);
+        }
+      }
+
+      /* ============ NAV ============ */
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        backdrop-filter: blur(14px);
+        background: rgba(5, 7, 12, 0.5);
+        border-bottom: 1px solid var(--line);
+      }
+      nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 28px;
+        max-width: 1280px;
+        margin: 0 auto;
+        gap: 12px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: "Space Grotesk";
+        font-weight: 600;
+        font-size: 17px;
+        white-space: nowrap;
+      }
+      .brand .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 14px 2px var(--accent);
+        transition:
+          background 0.5s ease,
+          box-shadow 0.5s ease;
+        flex-shrink: 0;
+      }
+      .navlinks {
+        display: flex;
+        gap: 4px;
+        font-size: 13px;
+        color: var(--muted);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .navlinks button {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 999px;
+        transition:
+          color 0.2s,
+          background 0.2s;
+        white-space: nowrap;
+      }
+      .navlinks button:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .navlinks button.active {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .navright {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .langbtn {
+        font-size: 12.5px;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        padding: 7px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        background: none;
+        letter-spacing: 0.02em;
+      }
+      .langbtn:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      @media (max-width: 980px) {
+        .navlinks {
+          display: none;
+        }
+      }
+
+      .progress {
+        position: fixed;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+      }
+      .progress button {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        transition:
+          background 0.3s,
+          transform 0.3s;
+      }
+      .progress button.active {
+        background: var(--accent);
+        transform: scale(1.4);
+      }
+      @media (max-width: 760px) {
+        .progress {
+          display: none;
+        }
+      }
+
+      .scroll-hint {
+        position: fixed;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 45;
+        font-size: 11.5px;
+        color: var(--muted);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        transition: opacity 0.3s ease;
+      }
+      .scroll-hint .chev {
+        width: 12px;
+        height: 12px;
+        border-right: 1.5px solid var(--muted);
+        border-bottom: 1.5px solid var(--muted);
+        transform: rotate(45deg);
+        animation: bob 1.8s ease-in-out infinite;
+      }
+      @keyframes bob {
+        0%,
+        100% {
+          transform: translateY(0) rotate(45deg);
+        }
+        50% {
+          transform: translateY(6px) rotate(45deg);
+        }
+      }
+
+      /* ============ SLIDES ============ */
+      .slide {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+        padding-top: 64px;
+      }
+      .slide.is-active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        z-index: 3;
+      }
+      .slide-inner {
+        width: 100%;
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 0 28px;
+        max-height: calc(var(--vh) * 100 - 64px);
+        overflow-y: auto;
+      }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(10px);
+        transition:
+          opacity 0.45s ease,
+          transform 0.45s ease;
+      }
+      .slide.is-active .reveal {
+        opacity: 1;
+        transform: translateY(0);
+        transition-delay: 0.08s;
+      }
+      .reveal.r2 {
+        transition-delay: 0.14s;
+      }
+      .slide.is-active .reveal.r2 {
+        transition-delay: 0.14s;
+      }
+      .reveal.r3 {
+        transition-delay: 0.2s;
+      }
+      .slide.is-active .reveal.r3 {
+        transition-delay: 0.2s;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--accent);
+        margin-bottom: 16px;
+        font-family: "Space Grotesk";
+        font-weight: 500;
+        transition: color 0.5s ease;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        transition: background 0.5s ease;
+      }
+
+      .slide h1 {
+        font-size: clamp(30px, 4.6vw, 54px);
+        line-height: 1.08;
+        font-weight: 600;
+        max-width: 640px;
+      }
+      .slide-lead {
+        margin-top: 16px;
+        font-size: 15.5px;
+        line-height: 1.6;
+        color: var(--muted);
+        max-width: 460px;
+      }
+      .slide-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+        flex-wrap: wrap;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #041014;
+        font-weight: 600;
+        font-size: 14.5px;
+        padding: 13px 24px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        transition:
+          background 0.5s ease,
+          transform 0.15s ease;
+        cursor: pointer;
+        border: none;
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+      }
+      .btn-ghost {
+        border: 1px solid var(--line);
+        color: var(--text);
+        font-weight: 500;
+        font-size: 14.5px;
+        padding: 13px 20px;
+        border-radius: 12px;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        cursor: pointer;
+        background: none;
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+      .status-note {
+        margin-top: 20px;
+        font-size: 12.5px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .status-note .pip {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #ffb454;
+        box-shadow: 0 0 8px 1px #ffb454;
+        flex-shrink: 0;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: center;
+        width: 100%;
+      }
+      @media (max-width: 900px) {
+        .split {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+      }
+
+      /* hero desktop mock */
+      .mock {
+        position: relative;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(10, 14, 22, 0.4);
+        backdrop-filter: blur(6px);
+        padding: 12px;
+      }
+      .mock-bar {
+        display: flex;
+        gap: 6px;
+        padding: 3px 6px 12px;
+      }
+      .mock-bar span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .mock-screen {
+        position: relative;
+        border-radius: 11px;
+        aspect-ratio: 16/10.5;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.2);
+      }
+      .mock-screen .clock {
+        position: absolute;
+        top: 14%;
+        left: 8%;
+        font-family: "Space Grotesk";
+        font-weight: 600;
+        font-size: clamp(24px, 4vw, 40px);
+        color: var(--accent);
+        text-shadow: 0 0 22px rgba(40, 240, 255, 0.4);
+        transition: color 0.5s ease;
+      }
+      .mock-screen .date {
+        position: absolute;
+        top: 34%;
+        left: 8.5%;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.75);
+        letter-spacing: 0.02em;
+      }
+      .mock-widget {
+        position: absolute;
+        right: 6%;
+        bottom: 8%;
+        width: 56%;
+        background: rgba(8, 12, 18, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(6px);
+        border-radius: 13px;
+        padding: 9px 11px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .mock-widget .cover {
+        width: 27px;
+        height: 27px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        flex-shrink: 0;
+        transition: background 0.5s ease;
+      }
+      .mock-widget .meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .mock-widget .meta .t {
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+      .mock-widget .meta .a {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .mock-widget .bar {
+        margin-top: 5px;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.14);
+        overflow: hidden;
+      }
+      .mock-widget .bar i {
+        display: block;
+        height: 100%;
+        width: 38%;
+        background: var(--accent);
+        transition: background 0.5s ease;
+      }
+      .particles-abs {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .particles-abs span {
+        position: absolute;
+        border-radius: 50%;
+        background: var(--accent);
+        opacity: 0.55;
+        animation: drift 7s linear infinite;
+        transition: background 0.5s ease;
+      }
+      @keyframes drift {
+        0% {
+          transform: translateY(0);
+          opacity: 0;
+        }
+        12% {
+          opacity: 0.55;
+        }
+        100% {
+          transform: translateY(120%);
+          opacity: 0;
+        }
+      }
+
+      /* feature list */
+      .feat-list {
+        display: flex;
+        flex-direction: column;
+      }
+      .feat-row {
+        display: flex;
+        gap: 16px;
+        padding: 14px 0;
+        border-top: 1px solid var(--line);
+      }
+      .feat-row:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+      .feat-num {
+        font-family: "Space Grotesk";
+        font-size: 12.5px;
+        color: var(--muted);
+        padding-top: 3px;
+        width: 22px;
+        flex-shrink: 0;
+      }
+      .feat-row h3 {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .feat-row p {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+        margin-top: 4px;
+        max-width: 38ch;
+      }
+
+      /* themes */
+      .theme-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        max-width: 880px;
+      }
+      @media (max-width: 860px) {
+        .theme-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .theme-card {
+        border-radius: 13px;
+        border: 1px solid var(--line);
+        overflow: hidden;
+        cursor: pointer;
+        background: var(--panel-solid);
+        transition:
+          border-color 0.25s,
+          transform 0.2s;
+      }
+      .theme-card:hover {
+        transform: translateY(-3px);
+      }
+      .theme-card.is-live {
+        border-color: var(--accent);
+      }
+      .theme-card .swatch {
+        height: 80px;
+        position: relative;
+      }
+      .swatch.t-aurora {
+        background: linear-gradient(140deg, #052b23, #0aa06b 60%, #8cffda);
+      }
+      .swatch.t-cyber {
+        background: linear-gradient(140deg, #020a12, #00637a 55%, #28f0ff);
+      }
+      .swatch.t-midnight {
+        background: linear-gradient(140deg, #020410, #12245c 55%, #8b7cff);
+      }
+      .swatch.t-sunset {
+        background: linear-gradient(140deg, #1a0710, #a13a2f 55%, #ff9a5a);
+      }
+      .theme-card .info {
+        padding: 10px 12px 12px;
+      }
+      .theme-card .info .name {
+        font-family: "Space Grotesk";
+        font-weight: 600;
+        font-size: 13.5px;
+      }
+      .theme-card .info .tag {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      /* pricing */
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 800px) {
+        .pricing-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .price-panel {
+        border-radius: 15px;
+        border: 1px solid var(--line);
+        background: var(--panel-solid);
+        padding: 22px 20px;
+      }
+      .price-panel.featured {
+        border-color: var(--accent);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.04),
+          var(--panel-solid) 45%
+        );
+      }
+      .price-tag {
+        font-size: 10.5px;
+        color: var(--muted);
+        font-family: "Space Grotesk";
+        letter-spacing: 0.03em;
+      }
+      .price-panel h3 {
+        font-size: 18px;
+        margin-top: 5px;
+      }
+      .price-amount {
+        font-family: "Space Grotesk";
+        font-size: 28px;
+        font-weight: 600;
+        margin-top: 12px;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .price-amount span {
+        font-size: 12px;
+        color: var(--muted);
+        font-family: "Inter";
+        font-weight: 400;
+      }
+      .price-list {
+        list-style: none;
+        padding: 0;
+        margin: 16px 0 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .price-list li {
+        font-size: 12.5px;
+        color: var(--muted);
+        display: flex;
+        gap: 8px;
+      }
+      .price-list li::before {
+        content: "—";
+        color: var(--accent);
+        flex-shrink: 0;
+        transition: color 0.5s ease;
+      }
+      .price-btn {
+        display: block;
+        text-align: center;
+        width: 100%;
+        padding: 11px;
+        border-radius: 9px;
+        font-weight: 600;
+        font-size: 13px;
+        border: 1px solid var(--line);
+      }
+      .price-panel.featured .price-btn {
+        background: var(--accent);
+        color: #041014;
+        border-color: transparent;
+        transition: background 0.5s ease;
+      }
+      .price-note {
+        margin-top: 14px;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+
+      /* community */
+      .social-links {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+      }
+      .social-link {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 11px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .social-link:hover {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .social-link svg {
+        width: 16px;
+        height: 16px;
+      }
+      footer.embedded {
+        padding: 16px 0 0;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+
+      /* ================= PLAYGROUND ================= */
+      .pg-wrap {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 860px) {
+        .pg-wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      .pg-controls {
+        background: rgba(10, 14, 22, 0.6);
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        backdrop-filter: blur(8px);
+      }
+      .pg-group-title {
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-family: "Space Grotesk";
+        margin-bottom: 9px;
+      }
+      .pg-toggles {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .pg-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 11px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        font-size: 13px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.02);
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .pg-toggle:hover {
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .pg-toggle.on {
+        border-color: var(--accent);
+        background: rgba(40, 240, 255, 0.08);
+      }
+      .pg-switch {
+        width: 32px;
+        height: 18px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.15);
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.2s;
+      }
+      .pg-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.2s;
+      }
+      .pg-toggle.on .pg-switch {
+        background: var(--accent);
+      }
+      .pg-toggle.on .pg-switch::after {
+        transform: translateX(14px);
+      }
+      .pg-cursors {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .pg-cursor-opt {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 11px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        font-size: 12.5px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.02);
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .pg-cursor-opt:hover {
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .pg-cursor-opt.on {
+        border-color: var(--accent);
+        background: rgba(40, 240, 255, 0.08);
+      }
+      .pg-cursor-preview {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        background-size: cover;
+        background-position: center;
+        flex-shrink: 0;
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+      .pg-slider-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .pg-slider-row label {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+      }
+      .pg-slider-row input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+      .pg-stage {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: radial-gradient(
+          120% 100% at 100% 0%,
+          #00637a 0%,
+          #020a12 60%
+        );
+        min-height: 340px;
+        height: min(58vh, 480px);
+      }
+      .pg-stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .pg-hint {
+        position: absolute;
+        left: 14px;
+        bottom: 14px;
+        font-size: 11.5px;
+        color: rgba(255, 255, 255, 0.55);
+        pointer-events: none;
+      }
+      .pg-drag-box {
+        position: absolute;
+        width: 140px;
+        padding: 11px 13px;
+        border-radius: 11px;
+        background: rgba(8, 12, 18, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        backdrop-filter: blur(8px);
+        cursor: grab;
+        font-size: 11.5px;
+        color: rgba(255, 255, 255, 0.85);
+        user-select: none;
+        touch-action: none;
+      }
+      .pg-drag-box:active {
+        cursor: grabbing;
+      }
+      .pg-drag-box .lbl {
+        font-family: "Space Grotesk";
+        font-weight: 600;
+        font-size: 12.5px;
+        margin-bottom: 3px;
+      }
+
+      #cursorDot {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 32px;
+        height: 32px;
+        pointer-events: none;
+        z-index: 999;
+        display: none;
+        transform: translate(-6px, -4px);
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
+      }
+      #cursorDot.anim-cursor {
+        background-image: var(--sprite-url);
+        background-size: 512px 32px;
+        animation: cursorStep 0.8s steps(16) infinite;
+      }
+      #cursorDot.static-cursor {
+        width: 44px;
+        height: 44px;
+        background-image: var(--paw-url);
+        background-size: 44px 44px;
+        transform: translate(-10px, -8px);
+      }
+      @keyframes cursorStep {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: -512px 0;
+        }
+      }
+
+      /* ================= PERSISTENT MINI PLAYER ================= */
+      #player {
+        position: fixed;
+        left: 18px;
+        bottom: 18px;
+        z-index: 55;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        background: rgba(9, 13, 20, 0.72);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+        border-radius: 16px;
+        padding: 10px 14px 10px 10px;
+        max-width: min(320px, calc(100vw - 36px));
+      }
+      #player .cov {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        flex-shrink: 0;
+        transition: background 0.5s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #player .cov svg {
+        width: 16px;
+        height: 16px;
+        opacity: 0.85;
+      }
+      #player .meta {
+        min-width: 0;
+        flex: 1;
+      }
+      #player .meta .t {
+        font-size: 12.5px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #player .meta .a {
+        font-size: 10.5px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #player .pbar {
+        margin-top: 5px;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.14);
+        overflow: hidden;
+        cursor: pointer;
+      }
+      #player .pbar i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: background 0.5s ease;
+      }
+      #player .ctrls {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+      #player button {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: none;
+        background: none;
+        color: var(--text);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.85;
+        transition:
+          opacity 0.2s,
+          background 0.2s;
+      }
+      #player button:hover {
+        opacity: 1;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      #player button svg {
+        width: 14px;
+        height: 14px;
+      }
+      #player.is-empty .meta .t {
+        color: var(--muted);
+      }
+      @media (max-width: 560px) {
+        #player {
+          left: 10px;
+          bottom: 10px;
+          padding: 8px 10px 8px 8px;
+        }
+        #player .meta {
+          display: none;
+        }
+      }
+
+      [data-i18n-lang="en"] {
+        display: none;
+      }
+      html[lang="en"] [data-i18n-lang="ru"] {
+        display: none;
+      }
+      html[lang="en"] [data-i18n-lang="en"] {
+        display: inline;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.001ms !important;
+          transition-duration: 0.2s !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <div id="sweep"></div>
+    <div id="cursorDot"></div>
+
+    <header>
+      <nav>
+        <div class="brand"><span class="dot"></span>Dream Visuals</div>
+        <div class="navlinks" id="navlinks">
+          <button data-goto="0">
+            <span data-i18n-lang="ru">Главная</span
+            ><span data-i18n-lang="en">Home</span>
+          </button>
+          <button data-goto="1">
+            <span data-i18n-lang="ru">Возможности</span
+            ><span data-i18n-lang="en">Features</span>
+          </button>
+          <button data-goto="2">
+            <span data-i18n-lang="ru">Темы</span
+            ><span data-i18n-lang="en">Themes</span>
+          </button>
+          <button data-goto="3">
+            <span data-i18n-lang="ru">Тарифы</span
+            ><span data-i18n-lang="en">Pricing</span>
+          </button>
+          <button data-goto="4">
+            <span data-i18n-lang="ru">Плейграунд</span
+            ><span data-i18n-lang="en">Playground</span>
+          </button>
+          <button data-goto="5">
+            <span data-i18n-lang="ru">Сообщество</span
+            ><span data-i18n-lang="en">Community</span>
+          </button>
+        </div>
+        <div class="navright">
+          <button class="langbtn" id="langToggle">EN</button>
+        </div>
+      </nav>
+    </header>
+
+    <div class="progress" id="progressDots"></div>
+    <div class="scroll-hint" id="scrollHint">
+      <span data-i18n-lang="ru">Листай вниз</span
+      ><span data-i18n-lang="en">Scroll down</span>
+      <span class="chev"></span>
+    </div>
+
+    <div id="stage">
+      <div id="bgThemes">
+        <!-- AURORA: organic blurred blobs, radial + linear mixed -->
+        <div class="theme-bg" data-theme="aurora">
+          <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="a1" cx="30%" cy="35%" r="60%">
+                <stop offset="0%" stop-color="#0aa06b" stop-opacity="0.55" />
+                <stop offset="100%" stop-color="#0aa06b" stop-opacity="0" />
+              </radialGradient>
+              <linearGradient id="a2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3dffc0" stop-opacity="0.35" />
+                <stop offset="100%" stop-color="#3dffc0" stop-opacity="0" />
+              </linearGradient>
+              <radialGradient id="a3" cx="80%" cy="80%" r="45%">
+                <stop offset="0%" stop-color="#c8ff8c" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="#c8ff8c" stop-opacity="0" />
+              </radialGradient>
+              <filter id="ablur"><feGaussianBlur stdDeviation="60" /></filter>
+            </defs>
+            <rect width="1600" height="900" fill="#04100c" />
+            <ellipse
+              cx="420"
+              cy="330"
+              rx="480"
+              ry="360"
+              fill="url(#a1)"
+              filter="url(#ablur)"
+            />
+            <path
+              d="M900,0 L1600,0 L1600,500 C1300,420 1100,300 900,120 Z"
+              fill="url(#a2)"
+              filter="url(#ablur)"
+            />
+            <ellipse
+              cx="1260"
+              cy="760"
+              rx="360"
+              ry="260"
+              fill="url(#a3)"
+              filter="url(#ablur)"
+            />
+          </svg>
+        </div>
+
+        <!-- CYBER: hard diagonal bands + one sharp glow, angular character -->
+        <div class="theme-bg" data-theme="cyber">
+          <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="c1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00637a" stop-opacity="0.5" />
+                <stop offset="100%" stop-color="#00637a" stop-opacity="0" />
+              </linearGradient>
+              <linearGradient id="c2" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#28f0ff" stop-opacity="0.4" />
+                <stop offset="100%" stop-color="#28f0ff" stop-opacity="0" />
+              </linearGradient>
+              <radialGradient id="c3" cx="85%" cy="15%" r="40%">
+                <stop offset="0%" stop-color="#28f0ff" stop-opacity="0.5" />
+                <stop offset="100%" stop-color="#28f0ff" stop-opacity="0" />
+              </radialGradient>
+              <filter id="cblur"><feGaussianBlur stdDeviation="35" /></filter>
+            </defs>
+            <rect width="1600" height="900" fill="#030a0f" />
+            <polygon
+              points="0,900 550,900 900,0 500,0"
+              fill="url(#c1)"
+              filter="url(#cblur)"
+            />
+            <polygon
+              points="1600,900 1050,900 1300,0 1600,0"
+              fill="url(#c2)"
+              filter="url(#cblur)"
+            />
+            <circle
+              cx="1360"
+              cy="130"
+              r="340"
+              fill="url(#c3)"
+              filter="url(#cblur)"
+            />
+          </svg>
+        </div>
+
+        <!-- MIDNIGHT: soft scattered nebula circles -->
+        <div class="theme-bg" data-theme="midnight">
+          <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="m1" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#8b7cff" stop-opacity="0.42" />
+                <stop offset="100%" stop-color="#8b7cff" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="m2" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#3355ff" stop-opacity="0.32" />
+                <stop offset="100%" stop-color="#3355ff" stop-opacity="0" />
+              </radialGradient>
+              <filter id="mblur"><feGaussianBlur stdDeviation="70" /></filter>
+            </defs>
+            <rect width="1600" height="900" fill="#03040c" />
+            <circle
+              cx="300"
+              cy="220"
+              r="300"
+              fill="url(#m1)"
+              filter="url(#mblur)"
+            />
+            <circle
+              cx="1250"
+              cy="620"
+              r="380"
+              fill="url(#m2)"
+              filter="url(#mblur)"
+            />
+            <circle
+              cx="1100"
+              cy="150"
+              r="220"
+              fill="url(#m1)"
+              filter="url(#mblur)"
+            />
+          </svg>
+        </div>
+
+        <!-- SUNSET: horizon linear band + sun glow + soft coral clouds -->
+        <div class="theme-bg" data-theme="sunset">
+          <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="s1" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#a13a2f" stop-opacity="0" />
+                <stop offset="100%" stop-color="#a13a2f" stop-opacity="0.5" />
+              </linearGradient>
+              <radialGradient id="s2" cx="70%" cy="55%" r="35%">
+                <stop offset="0%" stop-color="#ff9a5a" stop-opacity="0.6" />
+                <stop offset="100%" stop-color="#ff9a5a" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="s3" cx="20%" cy="25%" r="35%">
+                <stop offset="0%" stop-color="#ff6f91" stop-opacity="0.3" />
+                <stop offset="100%" stop-color="#ff6f91" stop-opacity="0" />
+              </radialGradient>
+              <filter id="sblur"><feGaussianBlur stdDeviation="55" /></filter>
+            </defs>
+            <rect width="1600" height="900" fill="#0e0704" />
+            <rect
+              x="0"
+              y="380"
+              width="1600"
+              height="520"
+              fill="url(#s1)"
+              filter="url(#sblur)"
+            />
+            <circle
+              cx="1120"
+              cy="500"
+              r="300"
+              fill="url(#s2)"
+              filter="url(#sblur)"
+            />
+            <ellipse
+              cx="320"
+              cy="230"
+              rx="340"
+              ry="220"
+              fill="url(#s3)"
+              filter="url(#sblur)"
+            />
+          </svg>
+        </div>
+      </div>
+      <div class="scrim"></div>
+
+      <!-- SLIDE 0: HERO -->
+      <section class="slide is-active" id="slide0" data-theme="aurora">
+        <div class="slide-inner">
+          <div class="split">
+            <div>
+              <div class="eyebrow reveal">
+                <span data-i18n-lang="ru">Живые обои для Windows</span
+                ><span data-i18n-lang="en">Live desktop for Windows</span>
+              </div>
+              <h1 class="reveal">
+                <span data-i18n-lang="ru"
+                  >Твой рабочий стол,<br />который дышит.</span
+                ><span data-i18n-lang="en">A desktop<br />that breathes.</span>
+              </h1>
+              <p class="slide-lead reveal r2">
+                <span data-i18n-lang="ru"
+                  >Dream Visuals превращает пустой рабочий стол в живую сцену:
+                  анимированные фоны, погода за окном, часы и музыка — под твой
+                  стиль, до последнего пикселя.</span
+                ><span data-i18n-lang="en"
+                  >Dream Visuals turns an empty desktop into a living scene:
+                  animated backdrops, weather drifting past your icons, clock
+                  and music widgets — styled down to the pixel.</span
+                >
+              </p>
+              <div class="slide-actions reveal r3">
+                <button class="btn-primary" data-goto="3">
+                  <span data-i18n-lang="ru">Смотреть тарифы</span
+                  ><span data-i18n-lang="en">See pricing</span>
+                </button>
+                <button class="btn-ghost" data-goto="4">
+                  <span data-i18n-lang="ru">Открыть плейграунд</span
+                  ><span data-i18n-lang="en">Open playground</span>
+                </button>
+              </div>
+              <div class="status-note reveal r3">
+                <span class="pip"></span>
+                <span data-i18n-lang="ru"
+                  >Сейчас идёт закрытое тестирование</span
+                ><span data-i18n-lang="en">Currently in closed testing</span>
+              </div>
+            </div>
+            <div class="reveal r2">
+              <div class="mock">
+                <div class="mock-bar">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="mock-screen">
+                  <div class="particles-abs" id="pHeroMock"></div>
+                  <div class="clock" id="heroClock">21:47</div>
+                  <div class="date" data-i18n-lang="ru">
+                    Суббота, 13 сентября
+                  </div>
+                  <div
+                    class="date"
+                    data-i18n-lang="en"
+                    style="top: 34%; left: 8.5%"
+                  >
+                    Saturday, September 13
+                  </div>
+                  <div class="mock-widget">
+                    <div class="cover"></div>
+                    <div class="meta">
+                      <div class="t">Night Drive</div>
+                      <div class="a">Wave Atlas</div>
+                      <div class="bar"><i></i></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 1: FEATURES -->
+      <section class="slide" id="slide1" data-theme="cyber">
+        <div class="slide-inner">
+          <div class="split">
+            <div class="reveal">
+              <div class="eyebrow">
+                <span data-i18n-lang="ru">Возможности</span
+                ><span data-i18n-lang="en">Features</span>
+              </div>
+              <h1 style="font-size: clamp(26px, 3.4vw, 38px)">
+                <span data-i18n-lang="ru"
+                  >Четыре слоя,<br />один рабочий стол</span
+                ><span data-i18n-lang="en">Four layers,<br />one desktop</span>
+              </h1>
+              <p class="slide-lead">
+                <span data-i18n-lang="ru"
+                  >Каждый элемент настраивается отдельно: размер, цвет, шрифт,
+                  позиция.</span
+                ><span data-i18n-lang="en"
+                  >Every element configures on its own: size, color, font,
+                  position.</span
+                >
+              </p>
+            </div>
+            <div class="feat-list reveal r2">
+              <div class="feat-row">
+                <div class="feat-num">01</div>
+                <div>
+                  <h3>
+                    <span data-i18n-lang="ru">Анимированный фон</span
+                    ><span data-i18n-lang="en">Animated backdrop</span>
+                  </h3>
+                  <p>
+                    <span data-i18n-lang="ru"
+                      >Движение и цвет подстраиваются под тему.</span
+                    ><span data-i18n-lang="en"
+                      >Motion and color follow the theme.</span
+                    >
+                  </p>
+                </div>
+              </div>
+              <div class="feat-row">
+                <div class="feat-num">02</div>
+                <div>
+                  <h3>
+                    <span data-i18n-lang="ru">Часы и дата</span
+                    ><span data-i18n-lang="en">Clock &amp; date</span>
+                  </h3>
+                  <p>
+                    <span data-i18n-lang="ru"
+                      >Свой шрифт, размер, цвет и место на экране.</span
+                    ><span data-i18n-lang="en"
+                      >Your own font, size, color and screen position.</span
+                    >
+                  </p>
+                </div>
+              </div>
+              <div class="feat-row">
+                <div class="feat-num">03</div>
+                <div>
+                  <h3>
+                    <span data-i18n-lang="ru">Погода за окном</span
+                    ><span data-i18n-lang="en">Weather outside</span>
+                  </h3>
+                  <p>
+                    <span data-i18n-lang="ru"
+                      >Дождь, снег, листья, звёзды — попробуй в
+                      плейграунде.</span
+                    ><span data-i18n-lang="en"
+                      >Rain, snow, leaves, stars — try it in the
+                      playground.</span
+                    >
+                  </p>
+                </div>
+              </div>
+              <div class="feat-row">
+                <div class="feat-num">04</div>
+                <div>
+                  <h3>
+                    <span data-i18n-lang="ru">Музыкальный виджет</span
+                    ><span data-i18n-lang="en">Music widget</span>
+                  </h3>
+                  <p>
+                    <span data-i18n-lang="ru"
+                      >Обложка, прогресс-бар и управление прямо на столе.</span
+                    ><span data-i18n-lang="en"
+                      >Cover art, progress bar and controls on the
+                      desktop.</span
+                    >
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: THEMES -->
+      <section class="slide" id="slide2" data-theme="midnight">
+        <div class="slide-inner">
+          <div style="max-width: 620px" class="reveal">
+            <div class="eyebrow">
+              <span data-i18n-lang="ru">Темы оформления</span
+              ><span data-i18n-lang="en">Themes</span>
+            </div>
+            <h1 style="font-size: clamp(26px, 3.4vw, 38px)">
+              <span data-i18n-lang="ru">Четыре разных стола</span
+              ><span data-i18n-lang="en">Four different desktops</span>
+            </h1>
+            <p class="slide-lead">
+              <span data-i18n-lang="ru"
+                >Не просто перекраска — у каждой темы свои формы фона, эффекты и
+                характер движения.</span
+              ><span data-i18n-lang="en"
+                >Not just a recolor — each theme has its own background shapes,
+                effects and motion character.</span
+              >
+            </p>
+          </div>
+          <div
+            class="theme-grid reveal r2"
+            id="themeGrid"
+            style="margin-top: 26px"
+          >
+            <div class="theme-card" data-theme-key="aurora">
+              <div class="swatch t-aurora"></div>
+              <div class="info">
+                <div class="name">Aurora</div>
+                <div class="tag">
+                  <span data-i18n-lang="ru">Мягкие блики, органичные формы</span
+                  ><span data-i18n-lang="en">Soft glow, organic shapes</span>
+                </div>
+              </div>
+            </div>
+            <div class="theme-card" data-theme-key="cyber">
+              <div class="swatch t-cyber"></div>
+              <div class="info">
+                <div class="name">Cyber</div>
+                <div class="tag">
+                  <span data-i18n-lang="ru">Жёсткие диагонали, сканлайны</span
+                  ><span data-i18n-lang="en">Hard diagonals, scanlines</span>
+                </div>
+              </div>
+            </div>
+            <div class="theme-card" data-theme-key="midnight">
+              <div class="swatch t-midnight"></div>
+              <div class="info">
+                <div class="name">Midnight</div>
+                <div class="tag">
+                  <span data-i18n-lang="ru">Туманности, медленный дрейф</span
+                  ><span data-i18n-lang="en">Nebulae, slow drift</span>
+                </div>
+              </div>
+            </div>
+            <div class="theme-card" data-theme-key="sunset">
+              <div class="swatch t-sunset"></div>
+              <div class="info">
+                <div class="name">Sunset</div>
+                <div class="tag">
+                  <span data-i18n-lang="ru">Горизонт, тёплое свечение</span
+                  ><span data-i18n-lang="en">Horizon, warm glow</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: PRICING -->
+      <section class="slide" id="slide3" data-theme="sunset">
+        <div class="slide-inner">
+          <div class="split">
+            <div class="reveal">
+              <div class="eyebrow">
+                <span data-i18n-lang="ru">Тарифы</span
+                ><span data-i18n-lang="en">Pricing</span>
+              </div>
+              <h1 style="font-size: clamp(26px, 3.4vw, 38px)">
+                <span data-i18n-lang="ru">Выбери формат</span
+                ><span data-i18n-lang="en">Pick your format</span>
+              </h1>
+              <p class="slide-lead">
+                <span data-i18n-lang="ru"
+                  >Черновой прототип — оплата подключится ближе к публичному
+                  запуску.</span
+                ><span data-i18n-lang="en"
+                  >Early draft — payment goes live closer to launch.</span
+                >
+              </p>
+            </div>
+            <div class="pricing-grid reveal r2">
+              <div class="price-panel">
+                <div class="price-tag">
+                  <span data-i18n-lang="ru">ПОДПИСКА</span
+                  ><span data-i18n-lang="en">SUBSCRIPTION</span>
+                </div>
+                <h3>
+                  <span data-i18n-lang="ru">Ежемесячно</span
+                  ><span data-i18n-lang="en">Monthly</span>
+                </h3>
+                <div class="price-amount">
+                  —<span
+                    ><span data-i18n-lang="ru">цена уточняется</span
+                    ><span data-i18n-lang="en">price TBD</span></span
+                  >
+                </div>
+                <ul class="price-list">
+                  <li>
+                    <span data-i18n-lang="ru">Все темы оформления</span
+                    ><span data-i18n-lang="en">All themes</span>
+                  </li>
+                  <li>
+                    <span data-i18n-lang="ru">Обновления и новые эффекты</span
+                    ><span data-i18n-lang="en">Updates and new effects</span>
+                  </li>
+                  <li>
+                    <span data-i18n-lang="ru">Отмена в любой момент</span
+                    ><span data-i18n-lang="en">Cancel anytime</span>
+                  </li>
+                </ul>
+                <div class="price-btn">
+                  <span data-i18n-lang="ru">Скоро</span
+                  ><span data-i18n-lang="en">Coming soon</span>
+                </div>
+              </div>
+              <div class="price-panel featured">
+                <div class="price-tag">
+                  <span data-i18n-lang="ru">РАЗОВАЯ ПОКУПКА</span
+                  ><span data-i18n-lang="en">ONE-TIME</span>
+                </div>
+                <h3>Lifetime</h3>
+                <div class="price-amount">
+                  —<span
+                    ><span data-i18n-lang="ru">цена уточняется</span
+                    ><span data-i18n-lang="en">price TBD</span></span
+                  >
+                </div>
+                <ul class="price-list">
+                  <li>
+                    <span data-i18n-lang="ru"
+                      >Платишь раз, пользуешься всегда</span
+                    ><span data-i18n-lang="en">Pay once, keep it forever</span>
+                  </li>
+                  <li>
+                    <span data-i18n-lang="ru">Все текущие и будущие темы</span
+                    ><span data-i18n-lang="en"
+                      >All current and future themes</span
+                    >
+                  </li>
+                  <li>
+                    <span data-i18n-lang="ru">Приоритет в закрытом тесте</span
+                    ><span data-i18n-lang="en">Early access in testing</span>
+                  </li>
+                </ul>
+                <div class="price-btn">
+                  <span data-i18n-lang="ru">Скоро</span
+                  ><span data-i18n-lang="en">Coming soon</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="price-note reveal r3">
+            <span data-i18n-lang="ru"
+              >Оплата пока не подключена — сайт в режиме предпоказа.</span
+            ><span data-i18n-lang="en"
+              >Payment isn't connected yet — preview mode.</span
+            >
+          </p>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: PLAYGROUND -->
+      <section class="slide" id="slide4" data-theme="cyber">
+        <div class="slide-inner">
+          <div class="reveal" style="margin-bottom: 16px">
+            <div class="eyebrow">
+              <span data-i18n-lang="ru">Плейграунд</span
+              ><span data-i18n-lang="en">Playground</span>
+            </div>
+            <h1 style="font-size: clamp(22px, 2.8vw, 30px)">
+              <span data-i18n-lang="ru">Потрогай эффекты сам</span
+              ><span data-i18n-lang="en">Try the effects yourself</span>
+            </h1>
+          </div>
+
+          <div class="pg-wrap reveal r2">
+            <div class="pg-controls">
+              <div>
+                <div class="pg-group-title">
+                  <span data-i18n-lang="ru">ЭФФЕКТЫ ПОГОДЫ</span
+                  ><span data-i18n-lang="en">WEATHER EFFECTS</span>
+                </div>
+                <div class="pg-toggles" id="pgEffectToggles">
+                  <div class="pg-toggle" data-effect="rain">
+                    <span data-i18n-lang="ru">Дождь</span
+                    ><span data-i18n-lang="en">Rain</span>
+                    <div class="pg-switch"></div>
+                  </div>
+                  <div class="pg-toggle" data-effect="snow">
+                    <span data-i18n-lang="ru">Снег</span
+                    ><span data-i18n-lang="en">Snow</span>
+                    <div class="pg-switch"></div>
+                  </div>
+                  <div class="pg-toggle" data-effect="leaves">
+                    <span data-i18n-lang="ru">Листья</span
+                    ><span data-i18n-lang="en">Leaves</span>
+                    <div class="pg-switch"></div>
+                  </div>
+                  <div class="pg-toggle" data-effect="wind">
+                    <span data-i18n-lang="ru">Ветер</span
+                    ><span data-i18n-lang="en">Wind</span>
+                    <div class="pg-switch"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pg-slider-row">
+                <label
+                  ><span
+                    ><span data-i18n-lang="ru">Интенсивность</span
+                    ><span data-i18n-lang="en">Intensity</span></span
+                  ><span id="pgIntensityVal">50%</span></label
+                >
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value="50"
+                  id="pgIntensity"
+                />
+              </div>
+
+              <div>
+                <div class="pg-group-title">
+                  <span data-i18n-lang="ru">КУРСОР</span
+                  ><span data-i18n-lang="en">CURSOR</span>
+                </div>
+                <div class="pg-cursors" id="pgCursorOpts">
+                  <div class="pg-cursor-opt on" data-cursor="default">
+                    <div
+                      class="pg-cursor-preview"
+                      style="background: none"
+                    ></div>
+                    <span data-i18n-lang="ru">Обычный</span
+                    ><span data-i18n-lang="en">Default</span>
+                  </div>
+                  <div class="pg-cursor-opt" data-cursor="anim">
+                    <div class="pg-cursor-preview" id="cursorPreviewAnim"></div>
+                    <span data-i18n-lang="ru">Курсор 1 (анимированный)</span
+                    ><span data-i18n-lang="en">Cursor 1 (animated)</span>
+                  </div>
+                  <div class="pg-cursor-opt" data-cursor="static">
+                    <div
+                      class="pg-cursor-preview"
+                      id="cursorPreviewStatic"
+                    ></div>
+                    <span data-i18n-lang="ru">Курсор 2 (статичный)</span
+                    ><span data-i18n-lang="en">Cursor 2 (static)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pg-stage" id="pgStage">
+              <canvas id="pgCanvas"></canvas>
+              <div
+                class="pg-drag-box"
+                id="pgDragBox"
+                style="top: 20px; left: 20px"
+              >
+                <div class="lbl">21:47</div>
+                <div style="opacity: 0.65">
+                  <span data-i18n-lang="ru">перетащи меня</span
+                  ><span data-i18n-lang="en">drag me</span>
+                </div>
+              </div>
+              <div class="pg-hint">
+                <span data-i18n-lang="ru"
+                  >Двигай мышью, включай эффекты слева</span
+                ><span data-i18n-lang="en"
+                  >Move your mouse, toggle effects on the left</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: COMMUNITY -->
+      <section class="slide" id="slide5" data-theme="midnight">
+        <div class="slide-inner">
+          <div class="split">
+            <div class="reveal">
+              <div class="eyebrow">
+                <span data-i18n-lang="ru">Сообщество</span
+                ><span data-i18n-lang="en">Community</span>
+              </div>
+              <h1 style="font-size: clamp(26px, 3.4vw, 38px)">
+                <span data-i18n-lang="ru">Следи за разработкой</span
+                ><span data-i18n-lang="en">Follow the build</span>
+              </h1>
+              <p class="slide-lead">
+                <span data-i18n-lang="ru"
+                  >Новости, демо эффектов и ранний доступ — в соцсетях.</span
+                ><span data-i18n-lang="en"
+                  >News, effect demos and early access — over on social.</span
+                >
+              </p>
+              <div class="social-links">
+                <a class="social-link" href="#" target="_blank" rel="noopener"
+                  ><svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M21.5 3.5L2.5 11l6 2.2M21.5 3.5L18 20.5l-9.3-7.3M21.5 3.5L8.7 13.2m0 0L8.5 19l3-3.2"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    /></svg
+                  >Telegram</a
+                >
+                <a class="social-link" href="#" target="_blank" rel="noopener"
+                  ><svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M16 3v10.5a3.5 3.5 0 1 1-3-3.46V7.5a6.5 6.5 0 1 0 6 6.48V9.5c1 .6 2.1.95 3 1V7.2c-2.3-.2-4-1.9-4-4.2h-2z"
+                      fill="currentColor"
+                    /></svg
+                  >TikTok</a
+                >
+                <a class="social-link" href="#" target="_blank" rel="noopener"
+                  ><svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M22 8.6c0-2-1.5-3.6-3.4-3.8C15.9 4.6 12 4.6 12 4.6s-3.9 0-6.6.2C3.5 5 2 6.6 2 8.6 1.8 10.4 1.8 12 1.8 12s0 1.6.2 3.4c0 2 1.5 3.6 3.4 3.8 2.7.2 6.6.2 6.6.2s3.9 0 6.6-.2c1.9-.2 3.4-1.8 3.4-3.8.2-1.8.2-3.4.2-3.4s0-1.6-.2-3.4Z"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M9.8 15.3V8.7l5.8 3.3-5.8 3.3Z"
+                      fill="currentColor"
+                    /></svg
+                  >YouTube</a
+                >
+              </div>
+              <footer class="embedded">
+                © 2026 Dream Visuals.
+                <span data-i18n-lang="ru">Все права защищены.</span
+                ><span data-i18n-lang="en">All rights reserved.</span>
+              </footer>
+            </div>
+            <div
+              class="reveal r2"
+              style="position: relative; height: min(50vh, 380px)"
+            >
+              <div class="particles-abs" id="pCommunity"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- PERSISTENT MINI PLAYER -->
+    <div id="player" class="is-empty">
+      <div class="cov" id="plCover">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M9 18V5l12-2v13"
+            stroke="currentColor"
+            stroke-width="1.6"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle
+            cx="6"
+            cy="18"
+            r="3"
+            stroke="currentColor"
+            stroke-width="1.6"
+            fill="none"
+          />
+          <circle
+            cx="18"
+            cy="16"
+            r="3"
+            stroke="currentColor"
+            stroke-width="1.6"
+            fill="none"
+          />
+        </svg>
+      </div>
+      <div class="meta">
+        <div class="t" id="plTitle" data-i18n-lang="ru">
+          Добавь треки в /tracks
+        </div>
+        <div class="t" id="plTitleEn" data-i18n-lang="en">
+          Add tracks to /tracks
+        </div>
+        <div class="a" id="plArtist">Dream Visuals</div>
+        <div class="pbar" id="plBar"><i id="plBarFill"></i></div>
+      </div>
+      <div class="ctrls">
+        <button id="plPrev" title="Prev">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6zM20 6L9 12l11 6z" />
+          </svg>
+        </button>
+        <button id="plPlay" title="Play/Pause">
+          <svg viewBox="0 0 24 24" fill="currentColor" id="plPlayIcon">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </button>
+        <button id="plNext" title="Next">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 6h2v12h-2zM4 6l11 6-11 6z" />
+          </svg>
+        </button>
+        <button id="plMute" title="Mute">
+          <svg viewBox="0 0 24 24" fill="currentColor" id="plMuteIcon">
+            <path d="M4 9v6h4l5 5V4L8 9H4z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <audio id="audioEl" preload="none"></audio>
+
+    <script>
+      const SPRITE_URL =
+        "data:image/png;base64,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";
+      const PAW_URL =
+        "data:image/png;base64,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";
+      document.documentElement.style.setProperty(
+        "--sprite-url",
+        `url("${SPRITE_URL}")`,
+      );
+      document.documentElement.style.setProperty(
+        "--paw-url",
+        `url("${PAW_URL}")`,
+      );
+      document.getElementById("cursorPreviewAnim").style.backgroundImage =
+        `url("${SPRITE_URL}")`;
+      document.getElementById("cursorPreviewAnim").style.backgroundSize =
+        "512px 32px";
+      document.getElementById("cursorPreviewAnim").style.backgroundPosition =
+        "0 0";
+      document.getElementById("cursorPreviewStatic").style.backgroundImage =
+        `url("${PAW_URL}")`;
+
+      /* ============ THEME SWITCHING (simplified, robust) ============ */
+      const themeAccents = {
+        aurora: { accent: "#3dffc0", accent2: "#0aa06b" },
+        cyber: { accent: "#28f0ff", accent2: "#00637a" },
+        midnight: { accent: "#8b7cff", accent2: "#33409e" },
+        sunset: { accent: "#ff9a5a", accent2: "#a13a2f" },
+      };
+      const root = document.documentElement;
+      const bgNodes = {};
+      document
+        .querySelectorAll(".theme-bg")
+        .forEach((n) => (bgNodes[n.dataset.theme] = n));
+
+      function setActiveTheme(key) {
+        Object.values(bgNodes).forEach((n) => n.classList.remove("active"));
+        bgNodes[key].classList.add("active");
+        const t = themeAccents[key];
+        root.style.setProperty("--accent", t.accent);
+        root.style.setProperty("--accent-2", t.accent2);
+        document
+          .querySelectorAll(".theme-card")
+          .forEach((c) =>
+            c.classList.toggle("is-live", c.dataset.themeKey === key),
+          );
+      }
+
+      function runSweep() {
+        const el = document.getElementById("sweep");
+        el.classList.remove("run");
+        void el.offsetWidth;
+        el.classList.add("run");
+      }
+
+      /* ============ SLIDES / NAV ============ */
+      const slides = [...document.querySelectorAll(".slide")];
+      let current = 0,
+        animating = false,
+        lang = "ru";
+
+      function goTo(i) {
+        if (i < 0 || i >= slides.length || i === current || animating) return;
+        animating = true;
+        slides[current].classList.remove("is-active");
+        slides[i].classList.add("is-active");
+        setActiveTheme(slides[i].dataset.theme);
+        runSweep();
+        current = i;
+        updateNav();
+        document.getElementById("scrollHint").style.opacity =
+          current === 0 ? "1" : "0";
+        setTimeout(() => {
+          animating = false;
+        }, 480);
+      }
+
+      const dotsWrap = document.getElementById("progressDots");
+      slides.forEach((s, i) => {
+        const b = document.createElement("button");
+        b.addEventListener("click", () => goTo(i));
+        dotsWrap.appendChild(b);
+      });
+      function updateNav() {
+        [...dotsWrap.children].forEach((d, i) =>
+          d.classList.toggle("active", i === current),
+        );
+        document
+          .querySelectorAll("#navlinks button")
+          .forEach((b) =>
+            b.classList.toggle("active", +b.dataset.goto === current),
+          );
+      }
+      document
+        .querySelectorAll("[data-goto]")
+        .forEach((el) =>
+          el.addEventListener("click", () => goTo(+el.dataset.goto)),
+        );
+
+      setActiveTheme(slides[0].dataset.theme);
+      updateNav();
+
+      let wheelLock = false;
+      window.addEventListener(
+        "wheel",
+        (e) => {
+          if (
+            e.target.closest &&
+            (e.target.closest(".pg-controls") ||
+              (e.target.closest(".slide-inner")?.scrollHeight >
+                e.target.closest(".slide-inner")?.clientHeight &&
+                e.target.closest(".slide-inner").contains(e.target) &&
+                false))
+          )
+            return;
+          if (wheelLock) return;
+          if (Math.abs(e.deltaY) < 10) return;
+          wheelLock = true;
+          if (e.deltaY > 0) goTo(current + 1);
+          else goTo(current - 1);
+          setTimeout(() => (wheelLock = false), 520);
+        },
+        { passive: true },
+      );
+
+      let touchStartY = null;
+      window.addEventListener(
+        "touchstart",
+        (e) => {
+          if (
+            e.target.closest &&
+            (e.target.closest(".pg-controls") || e.target.closest("#pgStage"))
+          ) {
+            touchStartY = null;
+            return;
+          }
+          touchStartY = e.touches[0].clientY;
+        },
+        { passive: true },
+      );
+      window.addEventListener(
+        "touchend",
+        (e) => {
+          if (touchStartY === null) return;
+          const dy = touchStartY - e.changedTouches[0].clientY;
+          if (Math.abs(dy) > 60) {
+            if (dy > 0) goTo(current + 1);
+            else goTo(current - 1);
+          }
+          touchStartY = null;
+        },
+        { passive: true },
+      );
+
+      window.addEventListener("keydown", (e) => {
+        if (
+          document.activeElement &&
+          ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
+        )
+          return;
+        if (e.key === "ArrowDown" || e.key === "PageDown") {
+          e.preventDefault();
+          goTo(current + 1);
+        }
+        if (e.key === "ArrowUp" || e.key === "PageUp") {
+          e.preventDefault();
+          goTo(current - 1);
+        }
+      });
+
+      /* ============ CLOCK ============ */
+      function pad(n) {
+        return n.toString().padStart(2, "0");
+      }
+      function tickClock() {
+        const d = new Date();
+        const time = pad(d.getHours()) + ":" + pad(d.getMinutes());
+        const hc = document.getElementById("heroClock");
+        if (hc) hc.textContent = time;
+        const dl = document.querySelector("#pgDragBox .lbl");
+        if (dl) dl.textContent = time;
+      }
+      tickClock();
+      setInterval(tickClock, 15000);
+
+      /* ============ decorative particles ============ */
+      function spawnParticles(container, count) {
+        if (!container) return;
+        for (let i = 0; i < count; i++) {
+          const s = document.createElement("span");
+          const size = 2 + Math.random() * 4;
+          s.style.width = size + "px";
+          s.style.height = size + "px";
+          s.style.left = Math.random() * 100 + "%";
+          s.style.top = Math.random() * 70 + "%";
+          s.style.animationDelay = Math.random() * 7 + "s";
+          s.style.animationDuration = 5 + Math.random() * 4 + "s";
+          container.appendChild(s);
+        }
+      }
+      spawnParticles(document.getElementById("pHeroMock"), 12);
+      spawnParticles(document.getElementById("pCommunity"), 14);
+
+      /* ============ theme picker cards on slide 2 ============ */
+      document.querySelectorAll(".theme-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const key = card.dataset.themeKey;
+          slides[current].dataset.theme = key;
+          setActiveTheme(key);
+          runSweep();
+        });
+      });
+
+      /* ============ language toggle ============ */
+      const langToggle = document.getElementById("langToggle");
+      langToggle.addEventListener("click", () => {
+        lang = lang === "ru" ? "en" : "ru";
+        root.setAttribute("lang", lang);
+        langToggle.textContent = lang === "ru" ? "EN" : "RU";
+      });
+
+      root.style.setProperty("--vh", window.innerHeight * 0.01 + "px");
+      window.addEventListener("resize", () =>
+        root.style.setProperty("--vh", window.innerHeight * 0.01 + "px"),
+      );
+
+      /* ============ PLAYGROUND: weather canvas ============ */
+      const pgStage = document.getElementById("pgStage");
+      const pgCanvas = document.getElementById("pgCanvas");
+      const ctx = pgCanvas.getContext("2d");
+      let pgActive = { rain: false, snow: false, leaves: false, wind: false };
+      let intensity = 0.5;
+      let mouseX = -999,
+        mouseY = -999;
+
+      function resizeCanvas() {
+        const r = pgStage.getBoundingClientRect();
+        pgCanvas.width = Math.max(1, r.width * devicePixelRatio);
+        pgCanvas.height = Math.max(1, r.height * devicePixelRatio);
+        pgCanvas.style.width = r.width + "px";
+        pgCanvas.style.height = r.height + "px";
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      new ResizeObserver(resizeCanvas).observe(pgStage);
+      resizeCanvas();
+
+      let particles = [];
+      function makeParticle(kind) {
+        const r = pgStage.getBoundingClientRect();
+        const base = { kind, x: Math.random() * r.width, y: -10, vx: 0, vy: 0 };
+        if (kind === "rain") {
+          base.vy = 6 + Math.random() * 4;
+          base.len = 10 + Math.random() * 10;
+        }
+        if (kind === "snow") {
+          base.vy = 0.6 + Math.random() * 1;
+          base.r = 1.5 + Math.random() * 2.5;
+          base.sway = Math.random() * Math.PI * 2;
+        }
+        if (kind === "leaves") {
+          base.vy = 1 + Math.random() * 1;
+          base.r = 4 + Math.random() * 4;
+          base.rot = Math.random() * Math.PI;
+          base.rotSpeed = (Math.random() - 0.5) * 0.05;
+        }
+        return base;
+      }
+
+      function pgLoop() {
+        const r = pgStage.getBoundingClientRect();
+        ctx.clearRect(0, 0, r.width, r.height);
+        const windForce = pgActive.wind ? 2.2 : 0;
+        const spawnRate = intensity;
+        if (pgActive.rain && Math.random() < spawnRate * 0.9)
+          particles.push(makeParticle("rain"));
+        if (pgActive.snow && Math.random() < spawnRate * 0.4)
+          particles.push(makeParticle("snow"));
+        if (pgActive.leaves && Math.random() < spawnRate * 0.15)
+          particles.push(makeParticle("leaves"));
+
+        particles.forEach((p) => {
+          if (p.kind === "rain") {
+            p.x += windForce;
+            p.y += p.vy;
+            ctx.strokeStyle = "rgba(180,220,255,0.55)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - windForce * 1.5, p.y - p.len);
+            ctx.stroke();
+          } else if (p.kind === "snow") {
+            p.sway += 0.02;
+            p.x += Math.sin(p.sway) * 0.5 + windForce * 0.6;
+            p.y += p.vy;
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (p.kind === "leaves") {
+            p.rot += p.rotSpeed;
+            p.x += Math.sin(p.rot) * 0.8 + windForce;
+            p.y += p.vy;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = "rgba(255,150,80,0.75)";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.r, p.r * 0.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        });
+
+        if (mouseX > -100) {
+          ctx.strokeStyle = "rgba(40,240,255,0.18)";
+          ctx.beginPath();
+          ctx.arc(mouseX, mouseY, 26, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        particles = particles.filter(
+          (p) => p.y < r.height + 20 && p.x > -20 && p.x < r.width + 20,
+        );
+        requestAnimationFrame(pgLoop);
+      }
+      pgLoop();
+
+      pgStage.addEventListener("mousemove", (e) => {
+        const r = pgStage.getBoundingClientRect();
+        mouseX = e.clientX - r.left;
+        mouseY = e.clientY - r.top;
+      });
+      pgStage.addEventListener("mouseleave", () => {
+        mouseX = -999;
+        mouseY = -999;
+      });
+
+      document.querySelectorAll(".pg-toggle").forEach((t) => {
+        t.addEventListener("click", () => {
+          const eff = t.dataset.effect;
+          pgActive[eff] = !pgActive[eff];
+          t.classList.toggle("on", pgActive[eff]);
+        });
+      });
+
+      const intensitySlider = document.getElementById("pgIntensity");
+      const intensityVal = document.getElementById("pgIntensityVal");
+      intensitySlider.addEventListener("input", () => {
+        intensity = intensitySlider.value / 100;
+        intensityVal.textContent = intensitySlider.value + "%";
+      });
+
+      /* ============ cursor switcher (real assets) ============ */
+      const cursorDot = document.getElementById("cursorDot");
+      document.querySelectorAll(".pg-cursor-opt").forEach((opt) => {
+        opt.addEventListener("click", () => {
+          document
+            .querySelectorAll(".pg-cursor-opt")
+            .forEach((o) => o.classList.remove("on"));
+          opt.classList.add("on");
+          const mode = opt.dataset.cursor;
+          cursorDot.className = "";
+          if (mode === "default") {
+            cursorDot.style.display = "none";
+            pgStage.style.cursor = "auto";
+          } else if (mode === "anim") {
+            cursorDot.style.display = "block";
+            cursorDot.classList.add("anim-cursor");
+            pgStage.style.cursor = "none";
+          } else if (mode === "static") {
+            cursorDot.style.display = "block";
+            cursorDot.classList.add("static-cursor");
+            pgStage.style.cursor = "none";
+          }
+        });
+      });
+      window.addEventListener("mousemove", (e) => {
+        cursorDot.style.top = e.clientY + "px";
+        cursorDot.style.left = e.clientX + "px";
+      });
+      window.addEventListener("mouseleave", () => {
+        cursorDot.style.display = "none";
+      });
+      pgStage.addEventListener("mouseenter", () => {
+        const activeMode =
+          document.querySelector(".pg-cursor-opt.on").dataset.cursor;
+        if (activeMode !== "default") cursorDot.style.display = "block";
+      });
+
+      /* ============ draggable widget in playground ============ */
+      const dragBox = document.getElementById("pgDragBox");
+      let dragging = false,
+        dOffX = 0,
+        dOffY = 0;
+      function startDrag(x, y) {
+        dragging = true;
+        const rect = dragBox.getBoundingClientRect();
+        dOffX = x - rect.left;
+        dOffY = y - rect.top;
+      }
+      function moveDrag(x, y) {
+        if (!dragging) return;
+        const stageRect = pgStage.getBoundingClientRect();
+        let nx = x - stageRect.left - dOffX,
+          ny = y - stageRect.top - dOffY;
+        nx = Math.max(0, Math.min(stageRect.width - dragBox.offsetWidth, nx));
+        ny = Math.max(0, Math.min(stageRect.height - dragBox.offsetHeight, ny));
+        dragBox.style.left = nx + "px";
+        dragBox.style.top = ny + "px";
+      }
+      dragBox.addEventListener("mousedown", (e) =>
+        startDrag(e.clientX, e.clientY),
+      );
+      window.addEventListener("mousemove", (e) =>
+        moveDrag(e.clientX, e.clientY),
+      );
+      window.addEventListener("mouseup", () => (dragging = false));
+      dragBox.addEventListener(
+        "touchstart",
+        (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY),
+        { passive: true },
+      );
+      window.addEventListener(
+        "touchmove",
+        (e) => {
+          if (dragging) {
+            moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        },
+        { passive: true },
+      );
+      window.addEventListener("touchend", () => (dragging = false));
+
+      /* ============ WORKING AUDIO PLAYER ============ */
+      const TRACKS = [
+        {
+          title: "Greenpath",
+          artist: "Christopher Larkin",
+          src: "tracks/gp.mp3",
+        },
+        {
+          title: "Reflection",
+          artist: "Christopher Larkin",
+          src: "tracks/rf.mp3",
+        },
+        {
+          title: "City of tears",
+          artist: "Christopher Larkin",
+          src: "tracks/ct.mp3",
+        },
+      ];
+      const audioEl = document.getElementById("audioEl");
+      const playerEl = document.getElementById("player");
+      const plTitle = document.getElementById("plTitle");
+      const plTitleEn = document.getElementById("plTitleEn");
+      const plArtist = document.getElementById("plArtist");
+      const plBar = document.getElementById("plBar");
+      const plBarFill = document.getElementById("plBarFill");
+      const plPlay = document.getElementById("plPlay");
+      const plPlayIcon = document.getElementById("plPlayIcon");
+      const plPrev = document.getElementById("plPrev");
+      const plNext = document.getElementById("plNext");
+      const plMute = document.getElementById("plMute");
+      const plMuteIcon = document.getElementById("plMuteIcon");
+
+      const ICON_PLAY = '<path d="M8 5v14l11-7z"/>';
+      const ICON_PAUSE = '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
+      const ICON_VOL = '<path d="M4 9v6h4l5 5V4L8 9H4z"/>';
+      const ICON_MUTE =
+        '<path d="M4 9v6h4l5 5V4L8 9H4z" opacity=".4"/><path d="M16.5 12l3.5 3.5-1 1L15.5 13l-3.5 3.5-1-1L14.5 12 11 8.5l1-1 3.5 3.5L19 7.5l1 1z"/>';
+
+      let trackIndex = 0;
+      let hasWorkingTrack = false;
+      let userPaused = true;
+
+      function loadTrack(i, autoplay) {
+        trackIndex = (i + TRACKS.length) % TRACKS.length;
+        const t = TRACKS[trackIndex];
+        audioEl.src = t.src;
+        plTitle.textContent = t.title;
+        plTitleEn.textContent = t.title;
+        plArtist.textContent = t.artist;
+        playerEl.classList.remove("is-empty");
+        if (autoplay) {
+          audioEl.play().catch(() => {});
+        }
+      }
+
+      audioEl.addEventListener("error", () => {
+        // this track file isn't present yet — try the next one silently
+        if (!hasWorkingTrack && trackIndex < TRACKS.length - 1) {
+          loadTrack(trackIndex + 1, !userPaused);
+        } else if (!hasWorkingTrack) {
+          playerEl.classList.add("is-empty");
+          plTitle.textContent = "Добавь треки в /tracks";
+          plTitleEn.textContent = "Add tracks to /tracks";
+          plArtist.textContent = "Dream Visuals";
+        }
+      });
+      audioEl.addEventListener("canplay", () => {
+        hasWorkingTrack = true;
+      });
+      audioEl.addEventListener("ended", () => {
+        hasWorkingTrack = false;
+        loadTrack(trackIndex + 1, true);
+      });
+      audioEl.addEventListener("timeupdate", () => {
+        if (audioEl.duration) {
+          plBarFill.style.width =
+            (audioEl.currentTime / audioEl.duration) * 100 + "%";
+        }
+      });
+      audioEl.addEventListener("play", () => {
+        plPlayIcon.innerHTML = ICON_PAUSE;
+      });
+      audioEl.addEventListener("pause", () => {
+        plPlayIcon.innerHTML = ICON_PLAY;
+      });
+
+      plPlay.addEventListener("click", () => {
+        if (!audioEl.src) {
+          loadTrack(0, false);
+        }
+        if (audioEl.paused) {
+          userPaused = false;
+          audioEl.play().catch(() => {});
+        } else {
+          userPaused = true;
+          audioEl.pause();
+        }
+      });
+      plPrev.addEventListener("click", () => {
+        hasWorkingTrack = false;
+        loadTrack(trackIndex - 1, !audioEl.paused || !userPaused);
+      });
+      plNext.addEventListener("click", () => {
+        hasWorkingTrack = false;
+        loadTrack(trackIndex + 1, !audioEl.paused || !userPaused);
+      });
+      plMute.addEventListener("click", () => {
+        audioEl.muted = !audioEl.muted;
+        plMuteIcon.innerHTML = audioEl.muted ? ICON_MUTE : ICON_VOL;
+      });
+      plBar.addEventListener("click", (e) => {
+        if (!audioEl.duration) return;
+        const r = plBar.getBoundingClientRect();
+        const pct = (e.clientX - r.left) / r.width;
+        audioEl.currentTime = pct * audioEl.duration;
+      });
+
+      // attempt initial load silently (won't play until user presses play — most browsers block autoplay anyway)
+      loadTrack(0, false);
+    </script>
+  </body>
+</html>
